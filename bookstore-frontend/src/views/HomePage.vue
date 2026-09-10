@@ -50,17 +50,22 @@
         <h3 class="area-title">{{ currentMenu === 'home' ? '全部书籍' : currentMenu === 'recommend' ? '为你推荐' : currentMenu === 'hot' ? '热门榜单' : '个人中心' }}</h3>
         
         <!-- 根据 currentMenu 的值，条件渲染不同的内容 -->
-        
+
+        <!-- 书籍数据加载状态：数据来自后端 MySQL 的 books 表 -->
+        <p v-if="booksLoading && currentMenu !== 'mine'" class="state-tip">正在从数据库加载书籍...</p>
+        <p v-else-if="booksError && currentMenu !== 'mine'" class="state-tip error">{{ booksError }}</p>
+        <template v-else>
+
         <!-- 首页：展示全部书籍 -->
         <div v-if="currentMenu === 'home'" class="book-grid">
-          <div class="book-card" v-for="book in books" :key="book.id">
-            <div class="book-cover" :style="{ background: book.color }">{{ book.title }}</div>
+          <div class="book-card" v-for="book in displayBooks" :key="book.id">
+            <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
             <div class="book-info">
               <h4 class="book-title">{{ book.title }}</h4>
               <p class="book-author">{{ book.author }}</p>
               <p class="book-intro">{{ book.intro }}</p>
               <div class="book-price">
-                <span class="price-tag">{{ book.price }}</span>
+                <span class="price-tag">{{ formatPrice(book.price) }}</span>
                 <div class="book-actions">
                   <button
                     class="fav-btn"
@@ -79,13 +84,13 @@
         <!-- 推荐：只展示标记为 recommend 的书籍 -->
         <div v-else-if="currentMenu === 'recommend'" class="book-grid">
           <div class="book-card" v-for="book in recommendedBooks" :key="book.id">
-            <div class="book-cover" :style="{ background: book.color }">{{ book.title }}</div>
+            <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
             <div class="book-info">
               <h4 class="book-title">{{ book.title }}</h4>
               <p class="book-author">{{ book.author }}</p>
               <p class="book-intro">{{ book.intro }}</p>
               <div class="book-price">
-                <span class="price-tag">{{ book.price }}</span>
+                <span class="price-tag">{{ formatPrice(book.price) }}</span>
                 <div class="book-actions">
                   <button
                     class="fav-btn"
@@ -104,13 +109,13 @@
         <!-- 热门：只展示标记为 hot 的书籍 -->
         <div v-else-if="currentMenu === 'hot'" class="book-grid">
           <div class="book-card" v-for="book in hotBooks" :key="book.id">
-            <div class="book-cover" :style="{ background: book.color }">{{ book.title }}</div>
+            <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
             <div class="book-info">
               <h4 class="book-title">{{ book.title }}</h4>
               <p class="book-author">{{ book.author }}</p>
               <p class="book-intro">{{ book.intro }}</p>
               <div class="book-price">
-                <span class="price-tag">{{ book.price }}</span>
+                <span class="price-tag">{{ formatPrice(book.price) }}</span>
                 <div class="book-actions">
                   <button
                     class="fav-btn"
@@ -167,7 +172,7 @@
             </p>
             <div v-else class="favorite-grid">
               <div class="favorite-item" v-for="book in favoriteBooks" :key="book.id">
-                <div class="favorite-cover" :style="{ background: book.color }">{{ book.title }}</div>
+                <div class="favorite-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
                 <div class="favorite-detail">
                   <p class="favorite-title">{{ book.title }}</p>
                   <p class="favorite-author">{{ book.author }}</p>
@@ -187,6 +192,8 @@
           </section>
         </div>
 
+        </template>
+
       </main>
       
     </div>
@@ -201,6 +208,14 @@ import axios from 'axios'
 const router = useRouter()
 const username = ref(localStorage.getItem('username') || '用户')
 const currentMenu = ref('home')
+
+// 后端接口地址
+const API_BASE = 'http://localhost:8080/api'
+
+// 书籍列表（数据来自后端 MySQL 的 books 表）
+const books = ref([])
+const booksLoading = ref(false)
+const booksError = ref('')
 
 // “我的”页面需要的个人资料
 const profile = ref(null)
@@ -220,6 +235,17 @@ const favoriteBooks = computed(() => {
   return books.value.filter(book => favoriteIds.value.includes(book.id))
 })
 
+// 当前菜单要展示的书籍：首页=全部，推荐/热门由数据库里的标记决定
+const displayBooks = computed(() => {
+  if (currentMenu.value === 'recommend') {
+    return recommendedBooks.value
+  }
+  if (currentMenu.value === 'hot') {
+    return hotBooks.value
+  }
+  return books.value
+})
+
 // 收藏书籍的标签去重合并
 const favoriteTags = computed(() => {
   const tagSet = new Set()
@@ -234,7 +260,7 @@ const fetchProfile = async () => {
   profileLoading.value = true
   profileError.value = ''
   try {
-    const response = await axios.get('http://localhost:8080/api/user/profile', {
+    const response = await axios.get(`${API_BASE}/user/profile`, {
       params: { username: username.value }
     })
     if (response.data.code === 200) {
@@ -248,6 +274,31 @@ const fetchProfile = async () => {
   } finally {
     profileLoading.value = false
   }
+}
+
+// 从后端数据库读取书籍列表（首页展示全部，推荐/热门用数据库里的标记过滤）
+const fetchBooks = async () => {
+  booksLoading.value = true
+  booksError.value = ''
+  try {
+    const response = await axios.get(`${API_BASE}/books`)
+    if (response.data.code === 200) {
+      books.value = response.data.data || []
+    } else {
+      booksError.value = response.data.message || '获取书籍失败'
+    }
+  } catch (error) {
+    console.error('获取书籍出错:', error)
+    booksError.value = '书籍加载失败，请确认后端服务已启动'
+  } finally {
+    booksLoading.value = false
+  }
+}
+
+// 价格显示成 ¥38.00 的形式
+const formatPrice = (price) => {
+  const value = Number(price)
+  return Number.isFinite(value) ? `¥${value.toFixed(2)}` : `¥${price}`
 }
 
 // 收藏数据的读取与写入（localStorage 按账号隔离）
@@ -275,70 +326,17 @@ const toggleFavorite = (book) => {
 
 onMounted(() => {
   fetchProfile()
+  fetchBooks()
   loadFavorites()
 })
 
-// 书籍数据（增加了封面背景色和分类字段，方便模拟展示）
-const books = ref([
-  { 
-    id: 1, 
-    title: '三体', 
-    author: '刘慈欣', 
-    price: '¥38.00', 
-    intro: '中国科幻文学里程碑之作。',
-    color: '#5e81ac',
-    tags: ['科幻', '中国文学'],
-    category: ['home', 'recommend', 'hot']
-  },
-  { 
-    id: 2, 
-    title: '活着', 
-    author: '余华', 
-    price: '¥25.00', 
-    intro: '讲述了人是为了活着本身而活着的。',
-    color: '#a3be8c',
-    tags: ['文学', '人生'],
-    category: ['home', 'recommend']
-  },
-  { 
-    id: 3, 
-    title: '百年孤独', 
-    author: '马尔克斯', 
-    price: '¥55.00', 
-    intro: '魔幻现实主义文学的代表作。',
-    color: '#ebcb8b',
-    tags: ['文学', '经典'],
-    category: ['home', 'hot']
-  },
-  { 
-    id: 4, 
-    title: '解忧杂货店', 
-    author: '东野圭吾', 
-    price: '¥42.00', 
-    intro: '现代人内心流失的东西，这家杂货店能帮你找回。',
-    color: '#bf616a',
-    tags: ['治愈', '推理'],
-    category: ['home', 'recommend', 'hot']
-  },
-  { 
-    id: 5, 
-    title: '你当像鸟飞往你的山', 
-    author: '塔拉·韦斯特弗', 
-    price: '¥49.00', 
-    intro: '教育意味着获得不同的视角，理解不同的人。',
-    color: '#b48ead',
-    tags: ['成长', '传记'],
-    category: ['home']
-  }
-])
-
 // 使用 computed 计算属性，自动过滤出“推荐”和“热门”的书籍
 const recommendedBooks = computed(() => {
-  return books.value.filter(book => book.category.includes('recommend'))
+  return books.value.filter(book => book.recommend)
 })
 
 const hotBooks = computed(() => {
-  return books.value.filter(book => book.category.includes('hot'))
+  return books.value.filter(book => book.hot)
 })
 
 const handleLogout = () => {
@@ -459,6 +457,21 @@ const handleLogout = () => {
   border-bottom: 2px solid #3498db;
   display: inline-block;
   padding-bottom: 8px;
+}
+
+/* 书籍列表的加载 / 报错提示 */
+.state-tip {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: #7f8c8d;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: inline-block;
+}
+
+.state-tip.error {
+  color: #e74c3c;
 }
 
 /* --- 书籍卡片网格布局 --- */
