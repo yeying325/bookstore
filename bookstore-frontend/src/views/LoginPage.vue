@@ -25,16 +25,23 @@ const handleLogin = async () => { // 2. 将函数改为 async
     });
 
     // 4. 处理登录成功
-    // 假设后端返回 { code: 200, message: "登录成功", data: { token: "..." } }
+    // 后端返回 { code: 200, message: "登录成功", data: { username, role, adminToken } }
+    // 管理员登录时 role = 'admin'，并多返回一个 adminToken，前端靠它调用管理员接口
     if (response.data.code === 200) {
-      // 将登录状态和 token 存入 localStorage
+      const data = response.data.data || {}
+
+      // 将登录状态、账号和角色存入 localStorage
       localStorage.setItem('isLoggedIn', 'true')
-      localStorage.setItem('username', username.value)
-      // 如果后端返回了 token，也一并保存
-      if (response.data.data && response.data.data.token) {
-        localStorage.setItem('token', response.data.data.token)
+      localStorage.setItem('username', data.username || username.value)
+      localStorage.setItem('role', data.role || 'user')
+
+      // 管理员令牌：管理员接口需要带上它，普通用户登录时清掉旧的
+      if (data.adminToken) {
+        localStorage.setItem('adminToken', data.adminToken)
+      } else {
+        localStorage.removeItem('adminToken')
       }
-      
+
       // 跳转到首页
       router.push('/home')
     } else {
