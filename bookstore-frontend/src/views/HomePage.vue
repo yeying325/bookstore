@@ -82,29 +82,85 @@
           </div>
         </div>
 
-        <!-- 推荐：只展示标记为 recommend 的书籍 -->
-        <div v-else-if="currentMenu === 'recommend'" class="book-grid">
-          <div class="book-card" v-for="book in recommendedBooks" :key="book.id">
-            <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
-            <div class="book-info">
-              <h4 class="book-title">{{ book.title }}</h4>
-              <p class="book-author">{{ book.author }}</p>
-              <p class="book-intro">{{ book.intro }}</p>
-              <div class="book-price">
-                <span class="price-tag">{{ formatPrice(book.price) }}</span>
-                <div class="book-actions">
-                  <button
-                    class="fav-btn"
-                    :class="{ active: isFavorite(book.id) }"
-                    @click="toggleFavorite(book)"
-                  >
-                    {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
-                  </button>
-                  <button class="buy-btn">加入购物车</button>
+        <!-- 推荐：根据「我的」页面里自己设置的偏好标签来推荐书籍 -->
+        <div v-else-if="currentMenu === 'recommend'" class="recommend-page">
+          <!-- 情况一：还没有设置任何偏好标签 -->
+          <div v-if="preferenceTags.length === 0" class="empty-block">
+            <p class="empty-tip">
+              还没有设置偏好标签。到「我的 → 偏好标签」里添加自己喜欢的标签，这里就会推荐相关的书籍。
+            </p>
+            <button class="admin-btn primary" @click="currentMenu = 'mine'">去设置偏好标签</button>
+          </div>
+
+          <!-- 情况二：设置了标签，但书架上没有匹配的书籍 -->
+          <p v-else-if="recommendedBooks.length === 0" class="empty-tip">
+            暂时没有和你的偏好标签匹配的书籍，可以回「我的」页面再添加几个标签试试。
+          </p>
+
+          <!-- 情况三：按偏好标签推荐的书籍 -->
+          <template v-else>
+            <p class="recommend-tip">
+              根据你的偏好标签：
+              <span class="tag-item tag-small" v-for="tag in preferenceTags" :key="tag">{{ tag }}</span>
+            </p>
+            <div class="book-grid">
+              <div class="book-card" v-for="book in recommendedBooks" :key="book.id">
+                <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
+                <div class="book-info">
+                  <h4 class="book-title">{{ book.title }}</h4>
+                  <p class="book-author">{{ book.author }}</p>
+                  <p class="book-intro">{{ book.intro }}</p>
+                  <!-- 展示这本书命中了哪些偏好标签 -->
+                  <div class="tag-list matched-tags">
+                    <span class="tag-item tag-small" v-for="tag in matchedTags(book)" :key="tag">
+                      {{ tag }}
+                    </span>
+                  </div>
+                  <div class="book-price">
+                    <span class="price-tag">{{ formatPrice(book.price) }}</span>
+                    <div class="book-actions">
+                      <button
+                        class="fav-btn"
+                        :class="{ active: isFavorite(book.id) }"
+                        @click="toggleFavorite(book)"
+                      >
+                        {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
+                      </button>
+                      <button class="buy-btn">加入购物车</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          </template>
+
+          <!-- 书店推荐：管理员在书架上勾选“放到推荐”的书籍 -->
+          <section v-if="shopRecommendedBooks.length > 0" class="recommend-block">
+            <h4 class="section-title">书店推荐</h4>
+            <div class="book-grid">
+              <div class="book-card" v-for="book in shopRecommendedBooks" :key="book.id">
+                <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
+                <div class="book-info">
+                  <h4 class="book-title">{{ book.title }}</h4>
+                  <p class="book-author">{{ book.author }}</p>
+                  <p class="book-intro">{{ book.intro }}</p>
+                  <div class="book-price">
+                    <span class="price-tag">{{ formatPrice(book.price) }}</span>
+                    <div class="book-actions">
+                      <button
+                        class="fav-btn"
+                        :class="{ active: isFavorite(book.id) }"
+                        @click="toggleFavorite(book)"
+                      >
+                        {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
+                      </button>
+                      <button class="buy-btn">加入购物车</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
         
         <!-- 热门：只展示标记为 hot 的书籍 -->
@@ -146,25 +202,67 @@
             </div>
 
             <div class="contact-panel">
-              <div class="contact-row">
-                <span class="contact-label">邮箱</span>
-                <span v-if="profileLoading" class="contact-value loading">加载中...</span>
-                <span v-else-if="profileError" class="contact-empty">--</span>
-                <span v-else-if="profile && profile.emailMasked" class="contact-value">
-                  {{ profile.emailMasked }}
-                </span>
-                <span v-else class="contact-empty">未绑定</span>
+              <div class="contact-head">
+                <span class="contact-title">联系方式</span>
+                <button
+                  v-if="!editingContact"
+                  class="admin-btn contact-edit-btn"
+                  :disabled="contactLoading"
+                  @click="startEditContact"
+                >
+                  {{ contactLoading ? '加载中...' : '✎ 修改' }}
+                </button>
               </div>
-              <div class="contact-row">
-                <span class="contact-label">手机号</span>
-                <span v-if="profileLoading" class="contact-value loading">加载中...</span>
-                <span v-else-if="profileError" class="contact-empty">--</span>
-                <span v-else-if="profile && profile.phoneMasked" class="contact-value">
-                  {{ profile.phoneMasked }}
-                </span>
-                <span v-else class="contact-empty">未绑定</span>
-              </div>
-              <p class="privacy-tip">🔒 出于隐私保护，联系方式仅展示脱敏信息</p>
+
+              <!-- 展示模式：只显示脱敏后的联系方式 -->
+              <template v-if="!editingContact">
+                <div class="contact-row">
+                  <span class="contact-label">邮箱</span>
+                  <span v-if="profileLoading" class="contact-value loading">加载中...</span>
+                  <span v-else-if="profileError" class="contact-empty">--</span>
+                  <span v-else-if="profile && profile.emailMasked" class="contact-value">
+                    {{ profile.emailMasked }}
+                  </span>
+                  <span v-else class="contact-empty">未绑定</span>
+                </div>
+                <div class="contact-row">
+                  <span class="contact-label">手机号</span>
+                  <span v-if="profileLoading" class="contact-value loading">加载中...</span>
+                  <span v-else-if="profileError" class="contact-empty">--</span>
+                  <span v-else-if="profile && profile.phoneMasked" class="contact-value">
+                    {{ profile.phoneMasked }}
+                  </span>
+                  <span v-else class="contact-empty">未绑定</span>
+                </div>
+                <p class="privacy-tip">🔒 平时只展示脱敏信息，点「修改」即可更新邮箱和手机号</p>
+              </template>
+
+              <!-- 编辑模式：注册时没填的，也可以在这里补上 -->
+              <template v-else>
+                <div class="contact-edit-row">
+                  <label>邮箱</label>
+                  <input v-model="contactForm.email" type="email" placeholder="选填，如 tom@qq.com" />
+                </div>
+                <div class="contact-edit-row">
+                  <label>手机号</label>
+                  <input v-model="contactForm.phone" type="text" placeholder="选填，11 位手机号" />
+                </div>
+                <p class="contact-hint">邮箱和手机号都是选填，清空后保存就等于解除绑定</p>
+                <div class="contact-actions">
+                  <button class="admin-btn primary" :disabled="contactSaving" @click="saveContact">
+                    {{ contactSaving ? '保存中...' : '保存' }}
+                  </button>
+                  <button class="admin-btn" :disabled="contactSaving" @click="cancelEditContact">取消</button>
+                </div>
+              </template>
+
+              <p
+                v-if="contactMsg"
+                class="contact-msg"
+                :class="{ error: contactMsgType === 'error' }"
+              >
+                {{ contactMsg }}
+              </p>
               <p v-if="profileError" class="profile-error">{{ profileError }}</p>
             </div>
           </section>
@@ -186,12 +284,51 @@
           </section>
 
           <section class="profile-section">
-            <h4 class="section-title">偏好标签</h4>
-            <p v-if="favoriteTags.length === 0" class="empty-tip">
-              收藏书籍后，这里会根据书籍类型自动生成标签
+            <div class="section-head">
+              <h4 class="section-title">偏好标签</h4>
+              <span class="section-hint">设置后，「推荐」会按这些标签为你找书</span>
+            </div>
+
+            <p v-if="preferenceTags.length === 0" class="empty-tip">
+              还没有设置偏好标签，在下面输入或点击书架上的标签即可添加
             </p>
             <div v-else class="tag-list">
-              <span class="tag-item" v-for="tag in favoriteTags" :key="tag">{{ tag }}</span>
+              <span class="tag-item tag-editable" v-for="tag in preferenceTags" :key="tag">
+                {{ tag }}
+                <button class="tag-del" title="删除这个标签" @click="removePreferenceTag(tag)">×</button>
+              </span>
+            </div>
+
+            <!-- 自己输入标签 -->
+            <div class="pref-tag-form">
+              <input
+                class="tag-input pref-tag-input"
+                v-model="newPreferenceTag"
+                type="text"
+                placeholder="输入自己的喜好标签，如 科幻"
+                @keyup.enter="addPreferenceTag()"
+              />
+              <button class="admin-btn primary" @click="addPreferenceTag()">添加标签</button>
+            </div>
+
+            <p v-if="preferenceMsg" class="pref-msg" :class="{ error: preferenceMsgType === 'error' }">
+              {{ preferenceMsg }}
+            </p>
+
+            <!-- 书架上的常见标签，点一下就能加进偏好 -->
+            <div v-if="allBookTags.length > 0" class="tag-suggest">
+              <span class="tag-suggest-label">书架上的标签（点击快速添加）：</span>
+              <span class="tag-suggest-list">
+                <button
+                  class="tag-suggest-item"
+                  v-for="tag in allBookTags"
+                  :key="tag"
+                  :disabled="hasPreferenceTag(tag)"
+                  @click="addPreferenceTag(tag)"
+                >
+                  {{ tag }}
+                </button>
+              </span>
             </div>
           </section>
 
@@ -411,6 +548,14 @@ const profile = ref(null)
 const profileLoading = ref(false)
 const profileError = ref('')
 
+// “我的”页面：修改邮箱 / 手机号
+const editingContact = ref(false)
+const contactLoading = ref(false)
+const contactSaving = ref(false)
+const contactForm = reactive({ email: '', phone: '' })
+const contactMsg = ref('')
+const contactMsgType = ref('info')
+
 // 用户收藏的书籍 id（按账号保存在浏览器本地）
 const favoriteIds = ref([])
 
@@ -470,24 +615,114 @@ const favoriteBooks = computed(() => {
   return books.value.filter(book => favoriteIds.value.includes(book.id))
 })
 
-// 当前菜单要展示的书籍：首页=全部，推荐/热门由数据库里的标记决定
-const displayBooks = computed(() => {
-  if (currentMenu.value === 'recommend') {
-    return recommendedBooks.value
-  }
-  if (currentMenu.value === 'hot') {
-    return hotBooks.value
-  }
-  return books.value
-})
+// 首页展示全部书籍（推荐、热门各自有单独的列表）
+const displayBooks = computed(() => books.value)
 
-// 收藏书籍的标签去重合并
-const favoriteTags = computed(() => {
+/* ==================== 偏好标签（由用户自己设置） ==================== */
+
+// 用户自己设置的喜好标签，按账号保存在浏览器本地
+const preferenceTags = ref([])
+const newPreferenceTag = ref('')
+const preferenceMsg = ref('')
+const preferenceMsgType = ref('info')
+
+// 最多允许设置的偏好标签数量
+const MAX_PREFERENCE_TAGS = 20
+
+const preferenceStorageKey = () => `bookstore_preference_tags_${username.value}`
+
+const showPreferenceMsg = (text, type = 'info') => {
+  preferenceMsg.value = text
+  preferenceMsgType.value = type
+}
+
+const loadPreferenceTags = () => {
+  try {
+    const saved = localStorage.getItem(preferenceStorageKey())
+    const parsed = saved ? JSON.parse(saved) : []
+    preferenceTags.value = Array.isArray(parsed)
+      ? parsed.map(tag => String(tag).trim()).filter(Boolean)
+      : []
+  } catch {
+    preferenceTags.value = []
+  }
+}
+
+const savePreferenceTags = () => {
+  localStorage.setItem(preferenceStorageKey(), JSON.stringify(preferenceTags.value))
+}
+
+// 比较标签时忽略大小写和首尾空格
+const normalizeTag = (tag) => (tag || '').trim().toLowerCase()
+
+const hasPreferenceTag = (tag) => {
+  return preferenceTags.value.some(item => normalizeTag(item) === normalizeTag(tag))
+}
+
+// 添加偏好标签：点推荐标签会传入标签内容，输入框回车时用输入框里的内容
+const addPreferenceTag = (tagFromClick) => {
+  const tag = (typeof tagFromClick === 'string' ? tagFromClick : newPreferenceTag.value).trim()
+  if (!tag) {
+    showPreferenceMsg('请先输入标签内容', 'error')
+    return
+  }
+  if (hasPreferenceTag(tag)) {
+    showPreferenceMsg(`标签「${tag}」已经添加过了`, 'error')
+    return
+  }
+  if (preferenceTags.value.length >= MAX_PREFERENCE_TAGS) {
+    showPreferenceMsg(`最多只能设置 ${MAX_PREFERENCE_TAGS} 个偏好标签`, 'error')
+    return
+  }
+  preferenceTags.value = [...preferenceTags.value, tag]
+  savePreferenceTags()
+  newPreferenceTag.value = ''
+  showPreferenceMsg(`已添加偏好标签：${tag}`)
+}
+
+const removePreferenceTag = (tag) => {
+  preferenceTags.value = preferenceTags.value.filter(item => item !== tag)
+  savePreferenceTags()
+  showPreferenceMsg(`已删除偏好标签：${tag}`)
+}
+
+// 书架上出现过的所有标签，用来给用户一键添加
+const allBookTags = computed(() => {
   const tagSet = new Set()
-  favoriteBooks.value.forEach(book => {
-    (book.tags || []).forEach(tag => tagSet.add(tag))
+  books.value.forEach(book => {
+    (book.tags || []).forEach(tag => {
+      const value = (tag || '').trim()
+      if (value) {
+        tagSet.add(value)
+      }
+    })
   })
   return Array.from(tagSet)
+})
+
+// 一本书命中了哪些偏好标签
+const matchedTags = (book) => {
+  if (preferenceTags.value.length === 0) {
+    return []
+  }
+  const wanted = new Set(preferenceTags.value.map(normalizeTag))
+  return (book.tags || []).filter(tag => wanted.has(normalizeTag(tag)))
+}
+
+// 推荐：只保留和偏好标签匹配的书籍，命中的标签越多排得越前
+const recommendedBooks = computed(() => {
+  if (preferenceTags.value.length === 0) {
+    return []
+  }
+  return books.value
+    .filter(book => matchedTags(book).length > 0)
+    .sort((a, b) => matchedTags(b).length - matchedTags(a).length)
+})
+
+// 书店推荐：管理员勾选了“放到推荐”的书籍（已经出现在上面列表里的不重复展示）
+const shopRecommendedBooks = computed(() => {
+  const shownIds = new Set(recommendedBooks.value.map(book => book.id))
+  return books.value.filter(book => book.recommend && !shownIds.has(book.id))
 })
 
 // 从后端获取当前用户的脱敏资料
@@ -508,6 +743,84 @@ const fetchProfile = async () => {
     profileError.value = '个人资料加载失败，请确认后端服务已启动'
   } finally {
     profileLoading.value = false
+  }
+}
+
+/* ==================== 修改邮箱 / 手机号 ==================== */
+
+// 校验规则，和后端的校验保持一致
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PHONE_PATTERN = /^1[3-9]\d{9}$/
+
+const showContactMsg = (text, type = 'info') => {
+  contactMsg.value = text
+  contactMsgType.value = type
+}
+
+// 点“修改”：先取回未脱敏的邮箱和手机号，填进输入框
+const startEditContact = async () => {
+  contactMsg.value = ''
+  contactLoading.value = true
+  try {
+    const response = await axios.get(`${API_BASE}/user/contact`, {
+      params: { username: username.value }
+    })
+    if (response.data.code === 200) {
+      contactForm.email = response.data.data.email || ''
+      contactForm.phone = response.data.data.phone || ''
+      editingContact.value = true
+    } else {
+      showContactMsg(response.data.message || '读取联系方式失败', 'error')
+    }
+  } catch (error) {
+    console.error('读取联系方式出错:', error)
+    showContactMsg('读取联系方式失败，请确认后端服务是否已启动', 'error')
+  } finally {
+    contactLoading.value = false
+  }
+}
+
+// 取消编辑，回到只读展示
+const cancelEditContact = () => {
+  editingContact.value = false
+  contactMsg.value = ''
+}
+
+// 保存：先做格式校验，成功后用后端返回的脱敏资料刷新展示区
+const saveContact = async () => {
+  const email = contactForm.email.trim()
+  const phone = contactForm.phone.trim()
+
+  if (email && !EMAIL_PATTERN.test(email)) {
+    showContactMsg('邮箱格式不正确，请检查后重试', 'error')
+    return
+  }
+  if (phone && !PHONE_PATTERN.test(phone)) {
+    showContactMsg('手机号格式不正确，请输入 11 位手机号', 'error')
+    return
+  }
+
+  contactSaving.value = true
+  contactMsg.value = ''
+  try {
+    const response = await axios.put(`${API_BASE}/user/contact`, {
+      username: username.value,
+      email,
+      phone
+    })
+    if (response.data.code === 200) {
+      profile.value = response.data.data
+      profileError.value = ''
+      editingContact.value = false
+      showContactMsg(response.data.message || '联系方式已更新')
+    } else {
+      showContactMsg(response.data.message || '保存失败，请稍后重试', 'error')
+    }
+  } catch (error) {
+    console.error('保存联系方式出错:', error)
+    showContactMsg('保存失败，请确认后端服务是否已启动', 'error')
+  } finally {
+    contactSaving.value = false
   }
 }
 
@@ -816,17 +1129,14 @@ onMounted(() => {
   fetchProfile()
   fetchBooks()
   loadFavorites()
+  loadPreferenceTags()
   // 管理员模式额外加载用户列表
   if (isAdmin.value) {
     fetchAdminUsers()
   }
 })
 
-// 使用 computed 计算属性，自动过滤出“推荐”和“热门”的书籍
-const recommendedBooks = computed(() => {
-  return books.value.filter(book => book.recommend)
-})
-
+// 使用 computed 计算属性，自动过滤出“热门”的书籍
 const hotBooks = computed(() => {
   return books.value.filter(book => book.hot)
 })
@@ -1142,7 +1452,7 @@ const handleLogout = () => {
   border: 1px solid #eee;
   border-radius: 10px;
   padding: 14px 20px;
-  min-width: 280px;
+  min-width: 300px;
 }
 
 .contact-row {
@@ -1169,6 +1479,76 @@ const handleLogout = () => {
 
 .contact-empty {
   color: #bdc3c7;
+}
+
+.contact-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #eceff3;
+}
+
+.contact-title {
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+.contact-edit-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.contact-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.contact-edit-row label {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.contact-edit-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.contact-edit-row input:focus {
+  border-color: #3498db;
+}
+
+.contact-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #a0a8b3;
+}
+
+.contact-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.contact-msg {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #1e8449;
+}
+
+.contact-msg.error {
+  color: #c0392b;
 }
 
 .privacy-tip {
@@ -1268,6 +1648,111 @@ const handleLogout = () => {
   border-radius: 999px;
   padding: 6px 16px;
   font-size: 13px;
+}
+
+/* --- 偏好标签（用户自己设置） --- */
+.section-hint {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.pref-tag-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.pref-tag-input {
+  width: 260px;
+}
+
+.pref-msg {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: #1e8449;
+}
+
+.pref-msg.error {
+  color: #c0392b;
+}
+
+.tag-suggest {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed #e8ebf0;
+}
+
+.tag-suggest-label {
+  display: block;
+  font-size: 12px;
+  color: #7f8c8d;
+  margin-bottom: 8px;
+}
+
+.tag-suggest-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-suggest-item {
+  border: 1px dashed rgba(52, 152, 219, 0.55);
+  background-color: rgba(52, 152, 219, 0.06);
+  color: #2471a3;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.tag-suggest-item:hover:not(:disabled) {
+  background-color: rgba(52, 152, 219, 0.2);
+}
+
+.tag-suggest-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --- 推荐页 --- */
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.recommend-tip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #5b6b7c;
+}
+
+.tag-item.tag-small {
+  padding: 3px 12px;
+  font-size: 12px;
+}
+
+.matched-tags {
+  margin-top: 10px;
+  gap: 6px;
+}
+
+.recommend-block {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px dashed #dfe4ea;
+}
+
+.recommend-block .section-title {
+  margin-bottom: 16px;
 }
 
 /* --- 管理员模式 --- */

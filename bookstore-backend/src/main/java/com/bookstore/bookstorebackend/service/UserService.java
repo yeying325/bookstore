@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class UserService {
@@ -66,6 +67,38 @@ public class UserService {
      */
     public List<User> listUsers() {
         return userRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+    }
+
+    /**
+     * 用户自己修改联系方式（“我的”页面里的邮箱、手机号）。
+     *
+     * 用 Map 接收要改的内容，只更新请求里真正带上的字段：
+     * 传了 email 就改邮箱，传了 phone 就改手机号。
+     * 字段传空字符串表示解除绑定，注册时没填的也能在这里补上。
+     *
+     * @return 更新后的用户，用户不存在时返回 null
+     */
+    public User updateContact(String username, Map<String, Object> changes) {
+        User user = userRepository.findByUsername(username);
+        if (user == null) {
+            return null;
+        }
+        if (changes.containsKey("email")) {
+            user.setEmail(normalizeContact(changes.get("email")));
+        }
+        if (changes.containsKey("phone")) {
+            user.setPhone(normalizeContact(changes.get("phone")));
+        }
+        return userRepository.save(user);
+    }
+
+    /** 联系方式统一处理：去掉首尾空格，空内容存成 null（表示未绑定） */
+    private String normalizeContact(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.isEmpty() ? null : text;
     }
 
     /**
