@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '../views/LoginPage.vue'
 import HomePage from '../views/HomePage.vue'
 import RegisterPage from '../views/RegisterPage.vue'
+import BookDetailPage from '../views/BookDetailPage.vue'
 
 const routes = [
   {
@@ -17,6 +18,13 @@ const routes = [
     path: '/home',
     name: 'Home',
     component: HomePage,
+    meta: { requiresAuth: true }
+  },
+  {
+    // 书籍详情页：在首页点任意一本书都会跳到这里，:id 是书籍的 id
+    path: '/book/:id',
+    name: 'BookDetail',
+    component: BookDetailPage,
     meta: { requiresAuth: true }
   },
   {  

@@ -4,6 +4,9 @@
 -- 执行方式（在项目根目录下）：
 --   mysql -uroot -p --default-character-set=utf8mb4 -e "source bookstore-backend/sql/books.sql"
 -- 脚本可以重复执行：表不存在时创建，示例数据按 id 覆盖更新
+--
+-- 书籍详情页的“评价”功能还需要 reviews 表，请接着执行：
+--   mysql -uroot -p --default-character-set=utf8mb4 -e "source bookstore-backend/sql/reviews.sql"
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS `bookstore`

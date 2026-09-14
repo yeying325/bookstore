@@ -59,7 +59,13 @@
 
         <!-- 首页：展示全部书籍 -->
         <div v-if="currentMenu === 'home'" class="book-grid">
-          <div class="book-card" v-for="book in displayBooks" :key="book.id">
+          <div
+            class="book-card clickable"
+            v-for="book in displayBooks"
+            :key="book.id"
+            title="点击查看书籍详情"
+            @click="openBookDetail(book)"
+          >
             <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
             <div class="book-info">
               <h4 class="book-title">{{ book.title }}</h4>
@@ -71,11 +77,11 @@
                   <button
                     class="fav-btn"
                     :class="{ active: isFavorite(book.id) }"
-                    @click="toggleFavorite(book)"
+                    @click.stop="toggleFavorite(book)"
                   >
                     {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
                   </button>
-                  <button class="buy-btn">加入购物车</button>
+                  <button class="buy-btn" @click.stop>加入购物车</button>
                 </div>
               </div>
             </div>
@@ -104,7 +110,13 @@
               <span class="tag-item tag-small" v-for="tag in preferenceTags" :key="tag">{{ tag }}</span>
             </p>
             <div class="book-grid">
-              <div class="book-card" v-for="book in recommendedBooks" :key="book.id">
+              <div
+                class="book-card clickable"
+                v-for="book in recommendedBooks"
+                :key="book.id"
+                title="点击查看书籍详情"
+                @click="openBookDetail(book)"
+              >
                 <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
                 <div class="book-info">
                   <h4 class="book-title">{{ book.title }}</h4>
@@ -122,11 +134,11 @@
                       <button
                         class="fav-btn"
                         :class="{ active: isFavorite(book.id) }"
-                        @click="toggleFavorite(book)"
+                        @click.stop="toggleFavorite(book)"
                       >
                         {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
                       </button>
-                      <button class="buy-btn">加入购物车</button>
+                      <button class="buy-btn" @click.stop>加入购物车</button>
                     </div>
                   </div>
                 </div>
@@ -138,7 +150,13 @@
           <section v-if="shopRecommendedBooks.length > 0" class="recommend-block">
             <h4 class="section-title">书店推荐</h4>
             <div class="book-grid">
-              <div class="book-card" v-for="book in shopRecommendedBooks" :key="book.id">
+              <div
+                class="book-card clickable"
+                v-for="book in shopRecommendedBooks"
+                :key="book.id"
+                title="点击查看书籍详情"
+                @click="openBookDetail(book)"
+              >
                 <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
                 <div class="book-info">
                   <h4 class="book-title">{{ book.title }}</h4>
@@ -150,11 +168,11 @@
                       <button
                         class="fav-btn"
                         :class="{ active: isFavorite(book.id) }"
-                        @click="toggleFavorite(book)"
+                        @click.stop="toggleFavorite(book)"
                       >
                         {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
                       </button>
-                      <button class="buy-btn">加入购物车</button>
+                      <button class="buy-btn" @click.stop>加入购物车</button>
                     </div>
                   </div>
                 </div>
@@ -165,7 +183,13 @@
         
         <!-- 热门：只展示标记为 hot 的书籍 -->
         <div v-else-if="currentMenu === 'hot'" class="book-grid">
-          <div class="book-card" v-for="book in hotBooks" :key="book.id">
+          <div
+            class="book-card clickable"
+            v-for="book in hotBooks"
+            :key="book.id"
+            title="点击查看书籍详情"
+            @click="openBookDetail(book)"
+          >
             <div class="book-cover" :style="{ background: book.coverColor }">{{ book.title }}</div>
             <div class="book-info">
               <h4 class="book-title">{{ book.title }}</h4>
@@ -177,11 +201,11 @@
                   <button
                     class="fav-btn"
                     :class="{ active: isFavorite(book.id) }"
-                    @click="toggleFavorite(book)"
+                    @click.stop="toggleFavorite(book)"
                   >
                     {{ isFavorite(book.id) ? '★ 已收藏' : '☆ 收藏' }}
                   </button>
-                  <button class="buy-btn">加入购物车</button>
+                  <button class="buy-btn" @click.stop>加入购物车</button>
                 </div>
               </div>
             </div>
@@ -507,6 +531,45 @@
                 </div>
               </div>
             </section>
+
+            <!-- 3. 评价管理：管理员可以删除任意一条评价 -->
+            <section class="profile-section admin-section">
+              <div class="section-head">
+                <h4 class="section-title">评价管理</h4>
+                <button
+                  class="admin-btn"
+                  :disabled="adminReviewsLoading"
+                  @click="fetchAdminReviews"
+                >
+                  {{ adminReviewsLoading ? '刷新中...' : '↻ 刷新评价' }}
+                </button>
+              </div>
+
+              <p class="section-hint review-hint">
+                这里是用户在书籍详情页写下的评价，删除后那本书的评分和评价列表也会跟着更新。
+              </p>
+
+              <p v-if="adminReviewsLoading" class="empty-tip">正在加载评价...</p>
+              <p v-else-if="adminReviews.length === 0" class="empty-tip">
+                数据库里还没有任何评价，用户可以在书籍详情页写下自己的评价
+              </p>
+              <div v-else class="admin-list">
+                <div class="admin-item admin-review" v-for="review in adminReviews" :key="review.id">
+                  <div class="admin-item-main">
+                    <p class="admin-item-title">
+                      《{{ review.bookTitle }}》
+                      <span class="admin-item-id">评价 #{{ review.id }}</span>
+                    </p>
+                    <p class="admin-item-sub">
+                      {{ review.username }} · {{ starsText(review.rating) }} {{ review.rating }} 星 ·
+                      {{ formatTime(review.createTime) }}
+                    </p>
+                    <p class="review-text">{{ review.content }}</p>
+                  </div>
+                  <button class="admin-btn danger" @click="deleteAdminReview(review)">删除评价</button>
+                </div>
+              </div>
+            </section>
           </template>
         </div>
 
@@ -563,6 +626,10 @@ const favoriteIds = ref([])
 
 // 管理员看到的用户列表
 const adminUsers = ref([])
+
+// 管理员看到的评价列表（来自 reviews 表）
+const adminReviews = ref([])
+const adminReviewsLoading = ref(false)
 
 // 操作结果提示
 const adminMsg = ref('')
@@ -849,6 +916,26 @@ const formatPrice = (price) => {
   return Number.isFinite(value) ? `¥${value.toFixed(2)}` : `¥${price}`
 }
 
+// 评分显示成 ★★★★☆ 的形式（四舍五入到整颗星）
+const starsText = (rating) => {
+  const value = Number(rating)
+  const filled = Number.isFinite(value) ? Math.min(5, Math.max(0, Math.round(value))) : 0
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled)
+}
+
+// 后端返回的时间（2026-09-14T10:20:30）显示成 2026-09-14 10:20
+const formatTime = (value) => {
+  if (!value) {
+    return '--'
+  }
+  return String(value).replace('T', ' ').slice(0, 16)
+}
+
+// 点击书籍卡片：跳转到这本书的详情页
+const openBookDetail = (book) => {
+  router.push(`/book/${book.id}`)
+}
+
 // 收藏数据的读取与写入（localStorage 按账号隔离）
 const favoriteStorageKey = () => `bookstore_favorites_${username.value}`
 
@@ -1067,6 +1154,45 @@ const fetchAdminUsers = async () => {
   }
 }
 
+// 获取全部评价：GET /api/admin/reviews
+const fetchAdminReviews = async () => {
+  adminReviewsLoading.value = true
+  try {
+    const response = await axios.get(`${API_BASE}/admin/reviews`, { headers: adminHeaders() })
+    if (response.data.code === 200) {
+      adminReviews.value = response.data.data || []
+    } else {
+      showAdminMsg(response.data.message || '获取评价列表失败', 'error')
+    }
+  } catch (error) {
+    console.error('获取评价列表出错:', error)
+    showAdminMsg(readErrorMessage(error, '获取评价列表失败，请确认后端服务已启动'), 'error')
+  } finally {
+    adminReviewsLoading.value = false
+  }
+}
+
+// 删除任意一条评价：DELETE /api/admin/reviews/{id}
+const deleteAdminReview = async (review) => {
+  if (!window.confirm(`确定要删除 ${review.username} 对《${review.bookTitle}》的评价吗？`)) {
+    return
+  }
+  try {
+    const response = await axios.delete(`${API_BASE}/admin/reviews/${review.id}`, {
+      headers: adminHeaders()
+    })
+    if (response.data.code === 200) {
+      adminReviews.value = adminReviews.value.filter(item => item.id !== review.id)
+      showAdminMsg(`已删除 ${review.username} 对《${review.bookTitle}》的评价`)
+    } else {
+      showAdminMsg(response.data.message || '删除评价失败', 'error')
+    }
+  } catch (error) {
+    console.error('删除评价出错:', error)
+    showAdminMsg(readErrorMessage(error, '删除评价失败，请确认后端服务已启动'), 'error')
+  }
+}
+
 // 展开 / 收起“创建用户”表单
 const toggleAddUserForm = () => {
   showAddUserForm.value = !showAddUserForm.value
@@ -1133,6 +1259,7 @@ onMounted(() => {
   // 管理员模式额外加载用户列表
   if (isAdmin.value) {
     fetchAdminUsers()
+    fetchAdminReviews()
   }
 })
 
@@ -1298,6 +1425,15 @@ const handleLogout = () => {
 .book-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+/* 整张卡片可以点击，点击后进入书籍详情页 */
+.book-card.clickable {
+  cursor: pointer;
+}
+
+.book-card.clickable:hover .book-title {
+  color: #2980b9;
 }
 
 .book-cover {
@@ -2065,5 +2201,32 @@ const handleLogout = () => {
 
 .admin-user .admin-item-sub {
   margin-bottom: 0;
+}
+
+/* 评价管理列表 */
+.review-hint {
+  display: block;
+  margin: -8px 0 16px;
+}
+
+.admin-review {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-review .admin-item-sub {
+  margin-bottom: 6px;
+}
+
+.review-text {
+  margin: 0;
+  font-size: 13px;
+  color: #4a5568;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>

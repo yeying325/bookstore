@@ -3,6 +3,7 @@ package com.bookstore.bookstorebackend.controller;
 import com.bookstore.bookstorebackend.entity.Book;
 import com.bookstore.bookstorebackend.entity.User;
 import com.bookstore.bookstorebackend.service.BookService;
+import com.bookstore.bookstorebackend.service.ReviewService;
 import com.bookstore.bookstorebackend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,10 @@ import java.util.Map;
  *   POST   /api/admin/books/{id}/tags  给书籍加标签
  *   DELETE /api/admin/books/{id}/tags  删除书籍的某个标签
  *
+ * 评价管理：
+ *   GET    /api/admin/reviews          查看全部评价（带书名）
+ *   DELETE /api/admin/reviews/{id}     删除任意一条评价
+ *
  * 用户管理：
  *   GET    /api/admin/users            查看全部用户
  *   POST   /api/admin/users            创建用户
@@ -38,6 +43,9 @@ public class AdminController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private ReviewService reviewService;
 
     /* ==================== 书籍管理 ==================== */
 
@@ -182,6 +190,27 @@ public class AdminController {
         }
         userService.deleteUser(id);
         return success("用户已删除");
+    }
+
+    /* ==================== 评价管理 ==================== */
+
+    /** 查看全部评价，附带书名，方便管理员辨认是哪本书的评价 */
+    @GetMapping("/reviews")
+    public Map<String, Object> listReviews() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 200);
+        result.put("message", "获取成功");
+        result.put("data", reviewService.listAllReviews());
+        return result;
+    }
+
+    /** 删除任意一条评价（哪本书、谁写的都能删） */
+    @DeleteMapping("/reviews/{id}")
+    public Map<String, Object> deleteReview(@PathVariable Long id) {
+        if (!reviewService.deleteReview(id)) {
+            return error(404, "这条评价不存在，可能已经被删除");
+        }
+        return success("评价已删除");
     }
 
     /* ==================== 返回结果的小工具 ==================== */

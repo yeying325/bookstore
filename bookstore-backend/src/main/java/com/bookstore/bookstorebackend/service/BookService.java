@@ -2,8 +2,10 @@ package com.bookstore.bookstorebackend.service;
 
 import com.bookstore.bookstorebackend.entity.Book;
 import com.bookstore.bookstorebackend.repository.BookRepository;
+import com.bookstore.bookstorebackend.repository.ReviewRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,6 +23,14 @@ public class BookService {
 
     @Autowired
     private BookRepository bookRepository;
+
+    @Autowired
+    private ReviewRepository reviewRepository;
+
+    /** 按 id 查询单本书籍（书籍详情页用），查不到返回 null */
+    public Book getBook(Long id) {
+        return bookRepository.findById(id).orElse(null);
+    }
 
     /**
      * 查询书籍列表
@@ -136,10 +146,13 @@ public class BookService {
      *
      * @return true=删除成功，false=这本书不存在
      */
+    @Transactional
     public boolean deleteBook(Long id) {
         if (!bookRepository.existsById(id)) {
             return false;
         }
+        // 书被删掉后，它下面的评价也一起清理，数据库里不会留下孤儿评价
+        reviewRepository.deleteByBookId(id);
         bookRepository.deleteById(id);
         return true;
     }
